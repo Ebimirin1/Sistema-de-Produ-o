@@ -1,0 +1,121 @@
+
+**Fórmulas de integração (fonte única):**
+
+- `totalPlanejado(OP)   = Σ planejadoKg dos sabores`
+- `disponivel(sabor)    = embutidoKg − destinadoKg`
+- `saldoEmporio(sabor)  = disponivel(sabor)`
+- `pendenciaItem(pedido)= solicitadoKg − separadoKg`
+- `diferenca(sabor)     = embutidoKg − planejadoKg`
+- `pesoBatelada         = carneKg + Σ temperos com unidade de massa`
+- `fimCura              = inicioCura + horasCura`
+
+---
+
+## 3. Requisitos funcionais
+
+### RF-01 — Tela 1: Planejamento geral da produção
+- RF-01.1 Criar ordem com número (identificador único), data, responsável e situação.
+- RF-01.2 Bloquear criação de OP com número já existente.
+- RF-01.3 Adicionar/remover linhas por sabor com quantidade planejada em kg.
+- RF-01.4 Exibir total planejado somado automaticamente.
+- RF-01.5 Exibir por sabor: destinado a expedição, produzido de fato e saldo Empório.
+- RF-01.6 Manter planejado, produzido e destinado em colunas separadas.
+- RF-01.7 Permitir produção parcial (campo próprio) sem alterar o planejado.
+- RF-01.8 Validação: quantidades negativas ou inválidas são bloqueadas/sinalizadas.
+
+### RF-02 — Tela 2: Separação de temperos e massadas
+- RF-02.1 Vincular cada massada a uma OP e a um sabor da OP.
+- RF-02.2 Dividir em bateladas com capacidade máxima de 150 kg **somando carne + temperos**.
+- RF-02.3 Permitir última batelada menor que o limite.
+- RF-02.4 Alertar quando a soma carne + temperos exceder 150 kg e bloquear a confirmação da mistura.
+- RF-02.5 Exibir por batelada: identificação, data, carne, cada tempero e sua quantidade, total de temperos, peso total, responsável pela separação e responsável pelo recebimento na mexedeira.
+- RF-02.6 Temperos vêm de ficha técnica cadastrada (escalada pela carne da batelada) ou de preenchimento manual.
+- RF-02.7 Registrar confirmação da mistura e início da cura.
+- RF-02.8 Calcular e exibir o horário previsto de conclusão da cura (início + 12 h, configurável).
+- RF-02.9 Insumos em unidade não convertível a kg não são somados ao peso; o sistema pede a decisão.
+
+### RF-03 — Tela 3: Sabores e separação de insumos
+- RF-03.1 Listar cada sabor com planejado, produzido de fato e embutido.
+- RF-03.2 Listar insumos do sabor com nome, unidade, quantidade necessária, quantidade separada, responsável e confirmação de entrega.
+- RF-03.3 Cada insumo conserva sua própria unidade; kg e ml nunca são somados indiscriminadamente.
+- RF-03.4 Bloquear a liberação para embutimento enquanto houver pendência de insumo.
+- RF-03.5 Registrar a quantidade embutida por sabor.
+- RF-03.6 Exibir diferença entre embutido e planejado.
+- RF-03.7 Proporções de ficha técnica são específicas do sabor; nenhuma proporção é aplicada a outro sabor.
+
+### RF-04 — Tela 4: Ordem de expedição e pedidos de parceiros
+- RF-04.1 Nome do tipo de parceiro configurável: fornecedor | comprador | cliente de atacado.
+- RF-04.2 Registrar número, parceiro, data, destino, responsável, situação e observações.
+- RF-04.3 Adicionar produtos por sabor com quantidade solicitada, quantidade separada e diferença pendente.
+- RF-04.4 Vincular itens à ordem de produção e mostrar a disponibilidade real por sabor.
+- RF-04.5 Validar separação contra a disponibilidade real, descontando o já reservado por outros pedidos.
+- RF-04.6 Na embalagem a vácuo, confirmar quantidades destinadas a cada pedido; o restante aparece como saldo Empório.
+- RF-04.7 Registrar conservação (resfriado / congelado / a definir) por pedido e por item.
+- RF-04.8 Gerar resumo com parceiro, produto e quantidade efetivamente separada para o faturamento.
+- RF-04.9 Separar visualmente *pedido recebido*, *produto separado* e *informação encaminhada ao faturamento*; separação nunca implica faturamento.
+
+### RF-05 — Integração e regras gerais
+- RF-05.1 Identificador único por OP; vínculo obrigatório em massadas, sabores e pedidos.
+- RF-05.2 Confirmação do usuário antes de alterar quantidade já utilizada em etapa posterior.
+- RF-05.3 Registro de histórico de toda alteração relevante (quem, quando, o quê, texto).
+- RF-05.4 Validações: sem negativos; batelada ≤ 150 kg; separação ≤ disponível.
+- RF-05.5 Painel inicial com andamento das ordens e pendências por setor.
+- RF-05.6 Interface priorizada para desktop, responsiva para celular.
+- RF-05.7 Exportar/importar dados em JSON.
+
+---
+
+## 4. Modelo de estados
+
+**Situação da OP:** Rascunho → Planejada → Em produção → Concluída | Cancelada
+
+**Situação do pedido:** Recebido → Separado → Encaminhado ao faturamento → Atendido | Cancelado
+> `Separado` NÃO implica `Faturado`. Faturamento é etapa externa.
+
+**Cura da batelada:** não iniciada → mistura confirmada → cura em andamento → cura concluída
+
+---
+
+## 5. Regras de negócio
+
+| Código | Regra |
+|---|---|
+| RN-01 | Capacidade da batelada = 150 kg somando carne + temperos (configurável). |
+| RN-02 | Cura = 12 h contadas do início informado (configurável). |
+| RN-03 | Conversão para kg somente quando a unidade for de massa (kg, g). ml e un não são convertidos sem decisão. |
+| RN-04 | Disponibilidade de sabor = embutido − reservado por pedidos. |
+| RN-05 | Saldo Empório = disponibilidade não destinada a pedidos. |
+| RN-06 | Produção parcial não sobrescreve o planejado. |
+| RN-07 | Alteração de quantidade já usada adiante exige confirmação e gera histórico. |
+| RN-08 | Ficha técnica é por sabor; proporções não são transferidas entre sabores. |
+| RN-09 | Sistema não gera validade, dados fiscais ou preços. |
+
+---
+
+## 6. Decisões pendentes (sinalizadas, não inventadas)
+
+1. Fator de conversão de temperos em ml / unidade para o peso da batelada.
+2. Validade e rastreabilidade dos produtos.
+3. Dados fiscais, preços e regras de faturamento.
+4. Lista oficial de colaboradores e seus papéis.
+5. Limite mínimo aceitável de diferença entre planejado e embutido.
+
+---
+
+## 7. Requisitos não funcionais
+
+- Navegadores modernos; sem instalação no cliente.
+- Renderização de tabelas grandes sem travar (paginação simples em versão de produção).
+- Acessibilidade básica: rótulos associados aos campos, contraste e foco visível.
+- Impressão: cada tela gera documento formatado com cabeçalho de OP.
+
+---
+
+## 8. Critérios de aceite (amostra)
+
+- Criar OP com 3 sabores e ver total planejado correto. **(RF-01.3/01.4)**
+- Lançar batelada com 145 kg de carne + 6 kg de tempero e receber alerta de excesso. **(RN-01)**
+- Cadastrar insumos com ml e kg no mesmo sabor e ver cada unidade preservada. **(RF-03.3)**
+- Tentar separar 30 kg de um sabor com 20 kg disponíveis e ser bloqueado. **(RF-04.5)**
+- Confirmar separação de um pedido e verificar que ele não aparece como faturado. **(RF-04.9)**
+- Alterar planejado de sabor já usado em pedido e receber pedido de confirmação com registro no histórico. **(RF-05.2/05.3)**
